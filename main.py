@@ -90,9 +90,49 @@ def delete_class():
         print("Class index does not exist. (hint: type 'list classes')")
 
 
-def displayPolyData(poly):
+def display_poly_data(poly):
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputData(poly)
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+
+    renderer = vtk.vtkRenderer()
+    renderer.AddActor(actor)
+
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    rwi = vtk.vtkRenderWindowInteractor()
+    rwi.SetRenderWindow(render_window)
+
+    render_window.Render()
+    render_window.Start()
+    rwi.Start()
+
+
+def display_image_data(image):
+    # An isosurface, or contour value of 1150 is known to correspond to the
+    # bone of the patient.
+    # The triangle stripper is used to create triangle strips from the
+    # isosurface these render much faster on may systems.
+    extractor = vtk.vtkFlyingEdges3D()
+    extractor.SetInputData(image)
+    extractor.SetValue(0, 50)
+
+    stripper = vtk.vtkStripper()
+    stripper.SetInputConnection(extractor.GetOutputPort())
+
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputConnection(stripper.GetOutputPort())
+    mapper.ScalarVisibilityOff()
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    # actor.GetProperty().SetDiffuseColor(colors.GetColor3d(clr))
+    actor.GetProperty().SetSpecular(0.3)
+    actor.GetProperty().SetSpecularPower(20)
+    actor.GetProperty().SetOpacity(1.0)
 
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
@@ -132,11 +172,12 @@ def process():
         for input_entry in get_list_of_inputs:
             input_reader.SetDirectoryName(input_dir + input_entry)
             input_reader.Update()
+            display_image_data(input_reader.GetOutput())
 
             if input_entry + ".stl" in class_inputs:
                 class_reader.SetFileName(class_dir + input_entry + ".stl")
                 class_reader.Update()
-                displayPolyData(class_reader.GetOutput())
+                display_poly_data(class_reader.GetOutput())
 
 commands = {
     "exit": sys.exit,
