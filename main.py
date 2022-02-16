@@ -2,7 +2,7 @@ import vtk
 import sys
 
 
-def commandsPrint():
+def commands_print():
     print("Printing available commands:")
     for command in commands.keys():
         print("  " + command)
@@ -10,7 +10,7 @@ def commandsPrint():
 
 commands = {
     "exit": sys.exit,
-    "commands": commandsPrint,
+    "commands": commands_print,
 }
 
 if __name__ == "__main__":
@@ -24,4 +24,4 @@ if __name__ == "__main__":
             commands[action]()
         else:
             print("Command not recognised. (" + action + ")")
-            commandsPrint()
+            commands_print()
