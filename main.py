@@ -61,13 +61,41 @@ def create_class():
     print("Created segmentation class with index (" + str(len(classes) - 1) + ") from dir '" + classes[-1] + "'. ")
 
 
+def list_classes():
+    global classes
+
+    print("Printing current class indices and directories: ")
+    for i, c in enumerate(classes):
+        print("  index " + str(i) + " : dir = " + c)
+
+
+def delete_class():
+    global classes
+
+    entered_class = input("Enter index of class to remove ('cancel' to cancel): ")
+
+    if entered_class == "cancel":
+        return
+
+    entered_class = int(entered_class)
+
+    if 0 <= entered_class < len(classes):
+        del classes[entered_class]
+        print("Updated indexes. ")
+        list_classes()
+    else:
+        print("Class index does not exist. (hint: type 'list classes')")
+
+
 commands = {
-    "exit" : sys.exit,
-    "commands" : commands_print,
-    "set input type" : set_input_type,
-    "set input dir" : set_input_dir,
-    "set output dir" : set_output_dir,
-    "create class" : create_class
+    "exit": sys.exit,
+    "commands": commands_print,
+    "set input type": set_input_type,
+    "set input dir": set_input_dir,
+    "set output dir": set_output_dir,
+    "create class": create_class,
+    "list classes": list_classes,
+    "delete class": delete_class
 }
 
 if __name__ == "__main__":
