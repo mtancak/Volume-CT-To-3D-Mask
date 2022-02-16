@@ -11,9 +11,12 @@ class InputType(Enum):
 input_type = InputType.NUMPY
 input_dir = None
 output_dir = None
+classes = []
 
 
 def commands_print():
+    global commands
+
     print("Printing available commands: ")
     for command in commands.keys():
         print("  " + command)
@@ -51,12 +54,20 @@ def set_output_dir():
     print("Set output directory to: '" + output_dir + "'.")
 
 
+def create_class():
+    global classes
+
+    classes.append(input("Enter segmentation class dir: "))
+    print("Created segmentation class with index (" + str(len(classes) - 1) + ") from dir '" + classes[-1] + "'. ")
+
+
 commands = {
-    "exit": sys.exit,
-    "commands": commands_print,
-    "set input type": set_input_type,
-    "set input dir": set_input_dir,
-    "set output dir": set_output_dir,
+    "exit" : sys.exit,
+    "commands" : commands_print,
+    "set input type" : set_input_type,
+    "set input dir" : set_input_dir,
+    "set output dir" : set_output_dir,
+    "create class" : create_class
 }
 
 if __name__ == "__main__":
