@@ -1,6 +1,8 @@
 import vtk
 import sys
 import os
+import numpy as np
+
 from enum import Enum
 
 
@@ -91,6 +93,7 @@ def delete_class():
 
 
 def display_poly_data(poly):
+    # Following mesh rendering example from vtk
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputData(poly)
 
@@ -112,10 +115,7 @@ def display_poly_data(poly):
 
 
 def display_image_data(image):
-    # An isosurface, or contour value of 1150 is known to correspond to the
-    # bone of the patient.
-    # The triangle stripper is used to create triangle strips from the
-    # isosurface these render much faster on may systems.
+    # Following volume rendering example from vtk
     extractor = vtk.vtkFlyingEdges3D()
     extractor.SetInputData(image)
     extractor.SetValue(0, 50)
@@ -129,7 +129,6 @@ def display_image_data(image):
 
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
-    # actor.GetProperty().SetDiffuseColor(colors.GetColor3d(clr))
     actor.GetProperty().SetSpecular(0.3)
     actor.GetProperty().SetSpecularPower(20)
     actor.GetProperty().SetOpacity(1.0)
@@ -159,25 +158,53 @@ def process():
     get_list_of_inputs = os.listdir(input_dir)
     print("Detected (" + str(len(get_list_of_inputs)) + ") inputs. ")
 
-    for i, class_dir in enumerate(classes):
-        class_inputs = os.listdir(class_dir)
-        print("Detected (" + str(len(get_list_of_inputs)) + ") inputs for class (" + str(i) + "). ")
+    input_reader = None
+    if input_type == InputType.DICOM:
+        input_reader = vtk.vtkDICOMImageReader()
 
-        input_reader = None
-        if input_type == InputType.DICOM:
-            input_reader = vtk.vtkDICOMImageReader()
+    class_reader = vtk.vtkSTLReader()
 
-        class_reader = vtk.vtkSTLReader()
-
-        for input_entry in get_list_of_inputs:
-            input_reader.SetDirectoryName(input_dir + input_entry)
-            input_reader.Update()
-            display_image_data(input_reader.GetOutput())
+    for input_entry in get_list_of_inputs:
+        input_reader.SetDirectoryName(input_dir + input_entry)
+        input_reader.Update()
+        input_entry_data = input_reader.GetOutput()
+        
+        display_image_data(input_entry_data)
+                
+        for i, class_dir in enumerate(classes):
+            class_inputs = os.listdir(class_dir)
+            print("Detected (" + str(len(get_list_of_inputs)) + ") inputs for class (" + str(i) + "). ")
 
             if input_entry + ".stl" in class_inputs:
                 class_reader.SetFileName(class_dir + input_entry + ".stl")
                 class_reader.Update()
-                display_poly_data(class_reader.GetOutput())
+                class_entry_data = class_reader.GetOutput()
+                
+                display_poly_data(class_entry_data)
+                
+                normals = vtk.vtkPolyDataNormals()
+                normals.SetInputData(class_entry_data)
+                normals.ComputePointNormalsOn()
+                normals.ComputeCellNormalsOff()
+                normals.SetConsistencyOn()
+                normals.SetAutoOrientNormalsOn()
+                normals.SplittingOff()
+                normals.Update()
+                
+                class_entry_normals = normals.GetOutput().GetPointData().GetNormals()
+                
+                pt = np.array([0, 0, 0])
+                for ptid in range(class_entry_data.GetNumberOfPoints()):
+                    class_entry_data.GetPoint(ptid, pt)
+                    # create output dicom of same shape and size
+                    # get nearest point in mesh
+                    # dot product with normal
+                    # if x > 0, set class id (i), else 0
+                # add output to dictionary
+        
+                
+                    
+                
 
 commands = {
     "exit": sys.exit,
