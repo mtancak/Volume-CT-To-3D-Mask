@@ -12,9 +12,9 @@ class InputType(Enum):
 
 
 input_type = InputType.DICOM
-input_dir = None
+input_dir = "C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Dicom/"
 output_dir = None
-classes = []
+classes = ["C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Class 0/"]
 
 input_data = {}
 classes_data = {}
@@ -170,6 +170,23 @@ def process():
         input_entry_data = input_reader.GetOutput()
         
         display_image_data(input_entry_data)
+
+        resizer = vtk.vtkImageResize()
+        resizer.SetResizeMethodToMagnificationFactors()
+        resizer.SetMagnificationFactors(0.2, 0.2, 0.2)
+        resizer.InterpolateOn()
+        resizer.SetInputData(input_entry_data)
+        resizer.Update()
+        input_entry_data = resizer.GetOutput()
+        
+        display_image_data(input_entry_data)
+
+        output_entry_data = vtk.vtkImageData()
+        # We copy the dimensions of the input vtkImageData
+        output_entry_data.SetOrigin(input_entry_data.GetOrigin())
+        output_entry_data.SetSpacing(input_entry_data.GetSpacing())
+        output_entry_data.SetExtent(input_entry_data.GetExtent())
+        output_entry_data.AllocateScalars(6, 1)  # 6 means that we are allocating scalars of type "int", 1 per voxel
                 
         for i, class_dir in enumerate(classes):
             class_inputs = os.listdir(class_dir)
@@ -182,26 +199,59 @@ def process():
                 
                 display_poly_data(class_entry_data)
                 
+                decimator = vtk.vtkDecimatePro()
+                decimator.SetTargetReduction(0.95)
+                # decimator.PreserveTopologyOn()
+                decimator.SetInputData(class_entry_data)
+                decimator.Update()
+                
+                cleaner = vtk.vtkCleanPolyData()
+                cleaner.SetInputData(decimator.GetOutput())
+                cleaner.Update()
+                
+                delaunay = vtk.vtkDelaunay3D()
+                delaunay.SetInputData(cleaner.GetOutput())
+                delaunay.Update()
+                
+                geometry = vtk.vtkGeometryFilter()
+                geometry.SetInputData(delaunay.GetOutput())
+                geometry.Update()
+                
+                display_poly_data(geometry.GetOutput())
+                
                 normals = vtk.vtkPolyDataNormals()
-                normals.SetInputData(class_entry_data)
+                normals.SetInputData(geometry.GetOutput())
                 normals.ComputePointNormalsOn()
                 normals.ComputeCellNormalsOff()
-                normals.SetConsistencyOn()
-                normals.SetAutoOrientNormalsOn()
+                normals.ConsistencyOn()
+                normals.AutoOrientNormalsOn()
                 normals.SplittingOff()
                 normals.Update()
-                
-                class_entry_normals = normals.GetOutput().GetPointData().GetNormals()
+                class_entry_data = normals.GetOutput()
+
+                class_entry_normals = class_entry_data.GetPointData().GetNormals()
+
+                class_locator = vtk.vtkStaticPointLocator()
+                class_locator.SetNumberOfPointsPerBucket(2)
+                class_locator.SetDataSet(class_entry_data)
+                class_locator.BuildLocator()
                 
                 pt = np.array([0, 0, 0])
-                for ptid in range(class_entry_data.GetNumberOfPoints()):
-                    class_entry_data.GetPoint(ptid, pt)
-                    # create output dicom of same shape and size
+                print("Num pts img = " + str(output_entry_data.GetNumberOfPoints()))
+                print("Num pts stl = " + str(class_entry_data.GetNumberOfPoints()))
+                for ptid in range(output_entry_data.GetNumberOfPoints()):
+                    if ptid % 1000 == 0:
+                        print("ptid = " + str(ptid))
+                    output_entry_data.GetPoint(ptid, pt)
+                    # nearest_points = vtk.vtkIdList()
+                    # class_locator.FindClosestNPoints(5, pt, nearest_points)
+                    outid = class_locator.FindClosestPoint(pt)
+
                     # get nearest point in mesh
                     # dot product with normal
                     # if x > 0, set class id (i), else 0
                 # add output to dictionary
-        
+    print("Done.")
                 
                     
                 
