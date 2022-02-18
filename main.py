@@ -1,4 +1,6 @@
 import vtk
+from vtk.util import numpy_support
+
 import sys
 import os
 import numpy as np
@@ -118,7 +120,7 @@ def display_image_data(image):
     # Following volume rendering example from vtk
     extractor = vtk.vtkFlyingEdges3D()
     extractor.SetInputData(image)
-    extractor.SetValue(0, 50)
+    extractor.SetValue(0, 1000)
 
     stripper = vtk.vtkStripper()
     stripper.SetInputConnection(extractor.GetOutputPort())
@@ -133,10 +135,8 @@ def display_image_data(image):
     actor.GetProperty().SetSpecularPower(20)
     actor.GetProperty().SetOpacity(1.0)
 
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-
     renderer = vtk.vtkRenderer()
+    renderer.SetBackground(255, 0, 50)
     renderer.AddActor(actor)
 
     render_window = vtk.vtkRenderWindow()
@@ -168,26 +168,27 @@ def process():
         input_reader.SetDirectoryName(input_dir + input_entry)
         input_reader.Update()
         input_entry_data = input_reader.GetOutput()
-        
+        input_entry_data.SetOrigin(input_reader.GetImagePositionPatient())
         display_image_data(input_entry_data)
-
-        resizer = vtk.vtkImageResize()
-        resizer.SetResizeMethodToMagnificationFactors()
-        resizer.SetMagnificationFactors(0.2, 0.2, 0.2)
-        resizer.InterpolateOn()
-        resizer.SetInputData(input_entry_data)
-        resizer.Update()
-        input_entry_data = resizer.GetOutput()
         
-        display_image_data(input_entry_data)
-
         output_entry_data = vtk.vtkImageData()
         # We copy the dimensions of the input vtkImageData
         output_entry_data.SetOrigin(input_entry_data.GetOrigin())
         output_entry_data.SetSpacing(input_entry_data.GetSpacing())
         output_entry_data.SetExtent(input_entry_data.GetExtent())
         output_entry_data.AllocateScalars(6, 1)  # 6 means that we are allocating scalars of type "int", 1 per voxel
-                
+
+        output_scalars = np.zeros(int(np.prod(input_entry_data.GetSpacing())))
+        print("shjape = " + str(output_scalars.shape))
+        for i in range(len(output_scalars)):
+            output_scalars[i] = 1
+        
+        output_scalars = numpy_support.numpy_to_vtk(output_scalars.ravel(), deep=True, array_type=6)
+        output_scalars.SetNumberOfComponents(1)
+        output_entry_data.GetPointData().SetScalars(output_scalars)
+    
+        output_entry_data.Modified()
+
         for i, class_dir in enumerate(classes):
             class_inputs = os.listdir(class_dir)
             print("Detected (" + str(len(get_list_of_inputs)) + ") inputs for class (" + str(i) + "). ")
@@ -200,8 +201,7 @@ def process():
                 display_poly_data(class_entry_data)
                 
                 decimator = vtk.vtkDecimatePro()
-                decimator.SetTargetReduction(0.95)
-                # decimator.PreserveTopologyOn()
+                decimator.SetTargetReduction(0.9)
                 decimator.SetInputData(class_entry_data)
                 decimator.Update()
                 
@@ -218,39 +218,26 @@ def process():
                 geometry.Update()
                 
                 display_poly_data(geometry.GetOutput())
+
+                stencil_converter = vtk.vtkPolyDataToImageStencil()
+                stencil_converter.SetOutputOrigin(input_entry_data.GetOrigin())
+                stencil_converter.SetOutputSpacing(input_entry_data.GetSpacing())
+                stencil_converter.SetOutputWholeExtent(input_entry_data.GetExtent())
+                stencil_converter.SetInputData(geometry.GetOutput())
+                stencil_converter.Update()
                 
-                normals = vtk.vtkPolyDataNormals()
-                normals.SetInputData(geometry.GetOutput())
-                normals.ComputePointNormalsOn()
-                normals.ComputeCellNormalsOff()
-                normals.ConsistencyOn()
-                normals.AutoOrientNormalsOn()
-                normals.SplittingOff()
-                normals.Update()
-                class_entry_data = normals.GetOutput()
-
-                class_entry_normals = class_entry_data.GetPointData().GetNormals()
-
-                class_locator = vtk.vtkStaticPointLocator()
-                class_locator.SetNumberOfPointsPerBucket(2)
-                class_locator.SetDataSet(class_entry_data)
-                class_locator.BuildLocator()
+                stencil_creator = vtk.vtkImageStencil()
+                stencil_creator.ReverseStencilOff()
+                stencil_creator.SetBackgroundValue(100)
+                stencil_creator.SetInputData(output_entry_data)
+                stencil_creator.SetStencilData(stencil_converter.GetOutput())
+                stencil_creator.Update()
                 
-                pt = np.array([0, 0, 0])
-                print("Num pts img = " + str(output_entry_data.GetNumberOfPoints()))
-                print("Num pts stl = " + str(class_entry_data.GetNumberOfPoints()))
-                for ptid in range(output_entry_data.GetNumberOfPoints()):
-                    if ptid % 1000 == 0:
-                        print("ptid = " + str(ptid))
-                    output_entry_data.GetPoint(ptid, pt)
-                    # nearest_points = vtk.vtkIdList()
-                    # class_locator.FindClosestNPoints(5, pt, nearest_points)
-                    outid = class_locator.FindClosestPoint(pt)
-
-                    # get nearest point in mesh
-                    # dot product with normal
-                    # if x > 0, set class id (i), else 0
-                # add output to dictionary
+                display_image_data(stencil_creator.GetOutput())
+                
+                
+        
+        
     print("Done.")
                 
                     
