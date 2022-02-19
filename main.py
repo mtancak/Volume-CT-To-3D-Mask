@@ -120,7 +120,7 @@ def display_image_data(image):
     # Following volume rendering example from vtk
     extractor = vtk.vtkFlyingEdges3D()
     extractor.SetInputData(image)
-    extractor.SetValue(0, 1000)
+    extractor.SetValue(0, 1)
 
     stripper = vtk.vtkStripper()
     stripper.SetInputConnection(extractor.GetOutputPort())
@@ -178,7 +178,7 @@ def process():
         output_entry_data.SetExtent(input_entry_data.GetExtent())
         output_entry_data.AllocateScalars(6, 1)  # 6 means that we are allocating scalars of type "int", 1 per voxel
 
-        output_scalars = np.zeros(int(np.prod(input_entry_data.GetSpacing())))
+        output_scalars = np.zeros(int(np.prod(input_entry_data.GetDimensions())))
         print("shjape = " + str(output_scalars.shape))
         for i in range(len(output_scalars)):
             output_scalars[i] = 1
@@ -200,44 +200,27 @@ def process():
                 
                 display_poly_data(class_entry_data)
                 
-                decimator = vtk.vtkDecimatePro()
-                decimator.SetTargetReduction(0.9)
-                decimator.SetInputData(class_entry_data)
-                decimator.Update()
-                
-                cleaner = vtk.vtkCleanPolyData()
-                cleaner.SetInputData(decimator.GetOutput())
-                cleaner.Update()
-                
-                delaunay = vtk.vtkDelaunay3D()
-                delaunay.SetInputData(cleaner.GetOutput())
-                delaunay.Update()
-                
-                geometry = vtk.vtkGeometryFilter()
-                geometry.SetInputData(delaunay.GetOutput())
-                geometry.Update()
-                
-                display_poly_data(geometry.GetOutput())
-
                 stencil_converter = vtk.vtkPolyDataToImageStencil()
-                stencil_converter.SetOutputOrigin(input_entry_data.GetOrigin())
-                stencil_converter.SetOutputSpacing(input_entry_data.GetSpacing())
-                stencil_converter.SetOutputWholeExtent(input_entry_data.GetExtent())
-                stencil_converter.SetInputData(geometry.GetOutput())
+                stencil_converter.SetOutputOrigin(output_entry_data.GetOrigin())
+                stencil_converter.SetOutputSpacing(output_entry_data.GetSpacing())
+                stencil_converter.SetOutputWholeExtent(output_entry_data.GetExtent())
+                stencil_converter.SetInputData(class_entry_data)
                 stencil_converter.Update()
                 
                 stencil_creator = vtk.vtkImageStencil()
-                stencil_creator.ReverseStencilOff()
-                stencil_creator.SetBackgroundValue(100)
+                stencil_creator.ReverseStencilOn()
+                stencil_creator.SetBackgroundValue(0)
                 stencil_creator.SetInputData(output_entry_data)
                 stencil_creator.SetStencilData(stencil_converter.GetOutput())
                 stencil_creator.Update()
                 
                 display_image_data(stencil_creator.GetOutput())
                 
-                
-        
-        
+                writer = vtk.vtkNIFTIImageWriter()
+                writer.SetInputData(stencil_creator.GetOutput())
+                writer.SetFileName("./test.nii")
+                writer.Write()
+                writer.Update()
     print("Done.")
                 
                     
