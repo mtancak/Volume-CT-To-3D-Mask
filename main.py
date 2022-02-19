@@ -196,19 +196,27 @@ def process():
             if input_entry + ".stl" in class_inputs:
                 class_reader.SetFileName(class_dir + input_entry + ".stl")
                 class_reader.Update()
-                class_entry_data = class_reader.GetOutput()
                 
-                display_poly_data(class_entry_data)
+                cleaner = vtk.vtkCleanPolyData()
+                cleaner.SetInputData(class_reader.GetOutput())
+                cleaner.Update()
+                
+                connectivity = vtk.vtkConnectivityFilter()
+                connectivity.SetExtractedRegionToLargest()
+                connectivity.SetInputData(cleaner.GetOutput())
+                connectivity.Update()
+                
+                display_poly_data(connectivity.GetOutput())
                 
                 stencil_converter = vtk.vtkPolyDataToImageStencil()
                 stencil_converter.SetOutputOrigin(output_entry_data.GetOrigin())
                 stencil_converter.SetOutputSpacing(output_entry_data.GetSpacing())
                 stencil_converter.SetOutputWholeExtent(output_entry_data.GetExtent())
-                stencil_converter.SetInputData(class_entry_data)
+                stencil_converter.SetInputData(connectivity.GetOutput())
                 stencil_converter.Update()
                 
                 stencil_creator = vtk.vtkImageStencil()
-                stencil_creator.ReverseStencilOn()
+                stencil_creator.ReverseStencilOff()
                 stencil_creator.SetBackgroundValue(0)
                 stencil_creator.SetInputData(output_entry_data)
                 stencil_creator.SetStencilData(stencil_converter.GetOutput())
