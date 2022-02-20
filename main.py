@@ -15,7 +15,7 @@ class InputType(Enum):
 
 input_type = InputType.DICOM
 input_dir = "C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Dicom/"
-output_dir = None
+output_dir = "./Output/"
 classes = ["C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Class 0/"]
 
 input_data = {}
@@ -179,7 +179,6 @@ def process():
         output_entry_data.AllocateScalars(6, 1)  # 6 means that we are allocating scalars of type "int", 1 per voxel
 
         output_scalars = np.zeros(int(np.prod(input_entry_data.GetDimensions())))
-        print("shjape = " + str(output_scalars.shape))
         for i in range(len(output_scalars)):
             output_scalars[i] = 1
         
@@ -202,7 +201,7 @@ def process():
                 cleaner.Update()
                 
                 connectivity = vtk.vtkConnectivityFilter()
-                connectivity.SetExtractedRegionToLargest()
+                connectivity.SetExtractionModeToLargestRegion()
                 connectivity.SetInputData(cleaner.GetOutput())
                 connectivity.Update()
                 
@@ -226,7 +225,13 @@ def process():
                 
                 writer = vtk.vtkNIFTIImageWriter()
                 writer.SetInputData(stencil_creator.GetOutput())
-                writer.SetFileName("./test.nii")
+                writer.SetFileName(output_dir + input_entry + ".nii")
+                writer.Write()
+                writer.Update()
+                
+                writer = vtk.vtkNIFTIImageWriter()
+                writer.SetInputData(input_entry_data)
+                writer.SetFileName(output_dir + input_entry + "_output.nii")
                 writer.Write()
                 writer.Update()
     print("Done.")
