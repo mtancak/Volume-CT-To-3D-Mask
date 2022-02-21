@@ -116,11 +116,11 @@ def display_poly_data(poly):
     rwi.Start()
 
 
-def display_image_data(image):
+def display_image_data(image, threshold=1):
     # Following volume rendering example from vtk
     extractor = vtk.vtkFlyingEdges3D()
     extractor.SetInputData(image)
-    extractor.SetValue(0, 1)
+    extractor.SetValue(0, threshold)
 
     stripper = vtk.vtkStripper()
     stripper.SetInputConnection(extractor.GetOutputPort())
@@ -172,11 +172,7 @@ def process():
         display_image_data(input_entry_data)
         
         output_entry_data = vtk.vtkImageData()
-        # We copy the dimensions of the input vtkImageData
-        output_entry_data.SetOrigin(input_entry_data.GetOrigin())
-        output_entry_data.SetSpacing(input_entry_data.GetSpacing())
-        output_entry_data.SetExtent(input_entry_data.GetExtent())
-        output_entry_data.AllocateScalars(6, 1)  # 6 means that we are allocating scalars of type "int", 1 per voxel
+        output_entry_data.DeepCopy(input_entry_data)
 
         output_scalars = np.zeros(int(np.prod(input_entry_data.GetDimensions())))
         for i in range(len(output_scalars)):
@@ -215,23 +211,46 @@ def process():
                 stencil_converter.Update()
                 
                 stencil_creator = vtk.vtkImageStencil()
-                stencil_creator.ReverseStencilOff()
-                stencil_creator.SetBackgroundValue(0)
+                stencil_creator.ReverseStencilOn()
+                stencil_creator.SetBackgroundValue(1)
                 stencil_creator.SetInputData(output_entry_data)
                 stencil_creator.SetStencilData(stencil_converter.GetOutput())
                 stencil_creator.Update()
+
+                stencil_creator1 = vtk.vtkImageStencil()
+                stencil_creator1.ReverseStencilOff()
+                stencil_creator1.SetBackgroundValue(2)
+                stencil_creator1.SetInputData(output_entry_data)
+                stencil_creator1.SetStencilData(stencil_converter.GetOutput())
+                stencil_creator1.Update()
                 
-                display_image_data(stencil_creator.GetOutput())
+                display_image_data(stencil_creator1.GetOutput())
                 
                 writer = vtk.vtkNIFTIImageWriter()
-                writer.SetInputData(stencil_creator.GetOutput())
+                writer.SetInputData(stencil_creator1.GetOutput())
                 writer.SetFileName(output_dir + input_entry + ".nii")
                 writer.Write()
                 writer.Update()
                 
+                blank_poly = vtk.vtkPolyData()
+                
+                stencil_converter2 = vtk.vtkPolyDataToImageStencil()
+                stencil_converter2.SetOutputOrigin(output_entry_data.GetOrigin())
+                stencil_converter2.SetOutputSpacing(output_entry_data.GetSpacing())
+                stencil_converter2.SetOutputWholeExtent(output_entry_data.GetExtent())
+                stencil_converter2.SetInputData(blank_poly)
+                stencil_converter2.Update()
+                
+                stencil_creator2 = vtk.vtkImageStencil()
+                stencil_creator2.ReverseStencilOn()
+                stencil_creator2.SetBackgroundValue(0)
+                stencil_creator2.SetInputData(input_entry_data)
+                stencil_creator2.SetStencilData(stencil_converter2.GetOutput())
+                stencil_creator2.Update()
+                
                 writer = vtk.vtkNIFTIImageWriter()
-                writer.SetInputData(input_entry_data)
-                writer.SetFileName(output_dir + input_entry + "_output.nii")
+                writer.SetInputData(stencil_creator2.GetOutput())
+                writer.SetFileName(output_dir + input_entry + "_output3.nii")
                 writer.Write()
                 writer.Update()
     print("Done.")
