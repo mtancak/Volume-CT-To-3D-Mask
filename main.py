@@ -109,31 +109,53 @@ def set_seg_threshold_limit():
     print("Set segmentation threshold limit to: '" + seg_threshold_limit + "'.")
 
 
-def display_mapper(mapper):
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-
+def display_mapper(mapper, style=None):
     renderer = vtk.vtkRenderer()
-    renderer.AddActor(actor)
+
+    if isinstance(mapper, list):
+        for m in mapper:
+            actor = vtk.vtkActor()
+            actor.SetMapper(mapper)
+            
+            renderer.AddActor(actor)
+            
+    else:
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        renderer.AddActor(actor)
 
     render_window = vtk.vtkRenderWindow()
     render_window.AddRenderer(renderer)
 
     rwi = vtk.vtkRenderWindowInteractor()
     rwi.SetRenderWindow(render_window)
+    
+    if style:
+        style.SetDefaultRenderer(renderer)
+        rwi.SetInteractorStyle(style)
 
+    rwi.Initialize()
     render_window.Render()
     render_window.Start()
     rwi.Start()
     print("Displaying.")
 
 
-def display_poly_data(poly):
-    # Following mesh rendering example from vtk
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputData(poly)
+def display_poly_data(poly, style=None):
+    if isinstance(poly, list):
+        mappers = []
+        for p in poly:
+            mapper = vtk.vtkPolyDataMapper()
+            mapper.SetInputData(poly)
+            mappers.append(mapper)
 
-    display_mapper(mapper)
+            display_mapper(mappers)
+    else:
+        # Following mesh rendering example from vtk
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputData(poly)
+    
+        display_mapper(mapper, style)
     
     
 def cut_image_at_threshold(image, threshold):
@@ -187,6 +209,46 @@ def count_sig_parts(poly):
     return np.sum(region_sizes > 100)
 
 
+# https://kitware.github.io/vtk-examples/site/Python/Picking/HighlightPickedActor/
+class MouseInteractorHighLightActor(vtk.vtkInteractorStyleTrackballCamera):
+
+    def __init__(self, parent=None):
+        self.AddObserver("LeftButtonPressEvent", self.leftButtonPressEvent)
+
+        self.LastPickedActor = None
+        self.LastPickedProperty = vtk.vtkProperty()
+
+    def leftButtonPressEvent(self, obj, event):
+        clickPos = self.GetInteractor().GetEventPosition()
+
+        picker = vtk.vtkPropPicker()
+        picker.Pick(clickPos[0], clickPos[1], 0, self.GetDefaultRenderer())
+
+        # get the new
+        self.NewPickedActor = picker.GetActor()
+
+        # If something was selected
+        if self.NewPickedActor:
+            # If we picked something before, reset its property
+            if self.LastPickedActor:
+                self.LastPickedActor.GetProperty().DeepCopy(self.LastPickedProperty)
+
+            # Save the property of the picked actor so that we can
+            # restore it next time
+            self.LastPickedProperty.DeepCopy(self.NewPickedActor.GetProperty())
+            # Highlight the picked actor by changing its properties
+            self.NewPickedActor.GetProperty().SetColor(vtk.vtkNamedColors().GetColor3d('Red'))
+            self.NewPickedActor.GetProperty().SetDiffuse(1.0)
+            self.NewPickedActor.GetProperty().SetSpecular(0.0)
+            self.NewPickedActor.GetProperty().EdgeVisibilityOn()
+
+            # save the last picked actor
+            self.LastPickedActor = self.NewPickedActor
+
+        self.OnLeftButtonDown()
+        return
+
+
 def process():
     global input_type
     global input_dir
@@ -218,8 +280,6 @@ def process():
             segmented_poly = cut_image_at_threshold(input_entry_data, seg_threshold)
             found_classes = count_sig_parts(segmented_poly)
             
-            print("1 = " + str(found_classes))
-            print("2 = " + str(present_classes))
             if found_classes >= present_classes:
                 segmented = True
                 break
@@ -231,7 +291,8 @@ def process():
             continue
         
         print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
-        display_poly_data(randomise_colours(segmented_poly))
+        # display_poly_data(randomise_colours(segmented_poly))
+        display_poly_data(randomise_colours(segmented_poly), MouseInteractorHighLightActor())
         
         
         
