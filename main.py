@@ -21,6 +21,9 @@ classes = ["C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/200601
 input_data = {}
 classes_data = {}
 
+seg_threshold_start = 250
+seg_threshold_limit = 500
+
 def commands_print():
     global commands
 
@@ -38,8 +41,7 @@ def set_input_type():
     entered_type = input("Enter Input Type: ")
 
     try:
-        read_type = InputType(entered_type)
-        input_type = read_type
+        input_type = InputType(entered_type)
         print("Done.")
     except ValueError:
         print("Type doesn't exist.")
@@ -48,16 +50,14 @@ def set_input_type():
 def set_input_dir():
     global input_dir
 
-    entered_dir = input("Enter input directory: ")
-    input_dir = entered_dir
+    input_dir = input("Enter input directory: ")
     print("Set input directory to: '" + input_dir + "'.")
 
 
 def set_output_dir():
     global output_dir
 
-    entered_dir = input("Enter output directory: ")
-    output_dir = entered_dir
+    output_dir = input("Enter output directory: ")
     print("Set output directory to: '" + output_dir + "'.")
 
 
@@ -92,6 +92,20 @@ def delete_class():
         list_classes()
     else:
         print("Class index does not exist. (hint: type 'list classes')")
+
+
+def set_seg_threshold_start():
+    global seg_threshold_start
+
+    seg_threshold_start = input("Enter starting segmentation threshold: ")
+    print("Set starting segmentation threshold to: '" + seg_threshold_start + "'.")
+
+
+def set_seg_threshold_limit():
+    global seg_threshold_limit
+
+    seg_threshold_limit = input("Enter segmentation threshold limit: ")
+    print("Set segmentation threshold limit to: '" + seg_threshold_limit + "'.")
 
 
 def display_poly_data(poly):
