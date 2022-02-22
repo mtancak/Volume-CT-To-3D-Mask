@@ -111,11 +111,13 @@ def set_seg_threshold_limit():
 
 def display_mapper(mapper, style=None):
     renderer = vtk.vtkRenderer()
+    renderer.SetBackground(np.random.rand(3))
 
     if isinstance(mapper, list):
         for m in mapper:
             actor = vtk.vtkActor()
             actor.SetMapper(mapper)
+            actor.SetColor(np.random.rand(3))
             
             renderer.AddActor(actor)
             
@@ -148,12 +150,14 @@ def display_poly_data(poly, style=None):
             mapper = vtk.vtkPolyDataMapper()
             mapper.SetInputData(poly)
             mappers.append(mapper)
+            mapper.ScalarVisibilityOff()
 
             display_mapper(mappers)
     else:
         # Following mesh rendering example from vtk
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputData(poly)
+        mapper.ScalarVisibilityOff()
     
         display_mapper(mapper, style)
     
@@ -180,15 +184,6 @@ def display_image_data(image, threshold=1):
     display_mapper(mapper)
     
     
-def segment_image(image, threshold):
-    poly = cut_image_at_threshold(image, threshold)
-    
-    print("segment_image")
-    display_poly_data(poly)
-    
-    return poly
-    
-    
 def randomise_colours(poly):
     return poly
     
@@ -209,7 +204,7 @@ def count_sig_parts(poly):
     return np.sum(region_sizes > 100)
 
 
-# https://kitware.github.io/vtk-examples/site/Python/Picking/HighlightPickedActor/
+# code from https://kitware.github.io/vtk-examples/site/Python/Picking/HighlightPickedActor/
 class MouseInteractorHighLightActor(vtk.vtkInteractorStyleTrackballCamera):
 
     def __init__(self, parent=None):
@@ -291,19 +286,15 @@ def process():
             continue
         
         print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
-        # display_poly_data(randomise_colours(segmented_poly))
+        
         display_poly_data(randomise_colours(segmented_poly), MouseInteractorHighLightActor())
         
+        # pick class, 
+        # if no class, ask for created class id
         
+        # put all classes into some dict / list
         
-        
-        
-        
-        
-        
-        
-        
-        
+        # combine everything into 1 volume
         
         
         
