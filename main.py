@@ -23,6 +23,7 @@ classes_data = {}
 
 seg_threshold_start = 250
 seg_threshold_limit = 500
+seg_threshold_step = 50
 
 def commands_print():
     global commands
@@ -108,60 +109,82 @@ def set_seg_threshold_limit():
     print("Set segmentation threshold limit to: '" + seg_threshold_limit + "'.")
 
 
+def display_mapper(mapper):
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+
+    renderer = vtk.vtkRenderer()
+    renderer.AddActor(actor)
+
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    rwi = vtk.vtkRenderWindowInteractor()
+    rwi.SetRenderWindow(render_window)
+
+    render_window.Render()
+    render_window.Start()
+    rwi.Start()
+    print("Displaying.")
+
+
 def display_poly_data(poly):
     # Following mesh rendering example from vtk
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputData(poly)
 
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-
-    renderer = vtk.vtkRenderer()
-    renderer.AddActor(actor)
-
-    render_window = vtk.vtkRenderWindow()
-    render_window.AddRenderer(renderer)
-
-    rwi = vtk.vtkRenderWindowInteractor()
-    rwi.SetRenderWindow(render_window)
-
-    render_window.Render()
-    render_window.Start()
-    rwi.Start()
+    display_mapper(mapper)
+    
+    
+def cut_image_at_threshold(image, threshold):
+    extractor = vtk.vtkFlyingEdges3D()
+    extractor.SetInputData(image)
+    extractor.SetValue(0, threshold)
+    extractor.Update()
+    
+    stripper = vtk.vtkStripper()
+    stripper.SetInputData(extractor.GetOutput())
+    stripper.Update()
+    
+    return stripper.GetOutput()
 
 
 def display_image_data(image, threshold=1):
     # Following volume rendering example from vtk
-    extractor = vtk.vtkFlyingEdges3D()
-    extractor.SetInputData(image)
-    extractor.SetValue(0, threshold)
-
-    stripper = vtk.vtkStripper()
-    stripper.SetInputConnection(extractor.GetOutputPort())
-
     mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(stripper.GetOutputPort())
+    mapper.SetInputData(cut_image_at_threshold(image, threshold))
     mapper.ScalarVisibilityOff()
 
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-    actor.GetProperty().SetSpecular(0.3)
-    actor.GetProperty().SetSpecularPower(20)
-    actor.GetProperty().SetOpacity(1.0)
-
-    renderer = vtk.vtkRenderer()
-    renderer.SetBackground(255, 0, 50)
-    renderer.AddActor(actor)
-
-    render_window = vtk.vtkRenderWindow()
-    render_window.AddRenderer(renderer)
-
-    rwi = vtk.vtkRenderWindowInteractor()
-    rwi.SetRenderWindow(render_window)
-
-    render_window.Render()
-    render_window.Start()
-    rwi.Start()
+    display_mapper(mapper)
+    
+    
+def segment_image(image, threshold):
+    poly = cut_image_at_threshold(image, threshold)
+    
+    print("segment_image")
+    display_poly_data(poly)
+    
+    return poly
+    
+    
+def randomise_colours(poly):
+    return poly
+    
+    
+def count_sig_parts(poly):
+    connectivity = vtk.vtkPolyDataConnectivityFilter()
+    connectivity.SetExtractionModeToAllRegions()
+    connectivity.SetInputData(poly)
+    connectivity.Update()
+    
+    region_count = connectivity.GetNumberOfExtractedRegions()
+    region_sizes = np.zeros(region_count)
+    
+    for i in range(region_count):
+        region_sizes[i] = connectivity.GetRegionSizes().GetTuple1(i)
+    
+    # threshold for a significant poly = 100 connected points
+    return np.sum(region_sizes > 100)
 
 
 def process():
@@ -183,7 +206,52 @@ def process():
         input_reader.Update()
         input_entry_data = input_reader.GetOutput()
         input_entry_data.SetOrigin(input_reader.GetImagePositionPatient())
-        display_image_data(input_entry_data)
+        
+        print("Displaying input (" + input_entry + ") at starting threshold:")
+        display_image_data(input_entry_data, seg_threshold_start)
+        present_classes = int(input("How many classes are present, excluding background? "))
+        
+        segmented = False
+        seg_threshold = seg_threshold_start
+        while not segmented and not (seg_threshold > seg_threshold_limit):
+            print("...Segmentation threshold = " + str(seg_threshold))
+            segmented_poly = cut_image_at_threshold(input_entry_data, seg_threshold)
+            found_classes = count_sig_parts(segmented_poly)
+            
+            print("1 = " + str(found_classes))
+            print("2 = " + str(present_classes))
+            if found_classes >= present_classes:
+                segmented = True
+                break
+            else:
+                seg_threshold += seg_threshold_step
+        
+        if not segmented:
+            print("Segmentation of input (" + input_entry + ") failed, continuing to the next one.")
+            continue
+        
+        print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
+        display_poly_data(randomise_colours(segmented_poly))
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         output_entry_data = vtk.vtkImageData()
         output_entry_data.DeepCopy(input_entry_data)
