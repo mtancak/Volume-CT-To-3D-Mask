@@ -239,6 +239,27 @@ class MouseInteractorHighLightActor(vtk.vtkInteractorStyleTrackballCamera):
         return
 
 
+def add_to_image(poly, image, i, reverse=False):
+    stencil_converter = vtk.vtkPolyDataToImageStencil()
+    stencil_converter.SetOutputOrigin(image.GetOrigin())
+    stencil_converter.SetOutputSpacing(image.GetSpacing())
+    stencil_converter.SetOutputWholeExtent(image.GetExtent())
+    stencil_converter.SetInputData(poly)
+    stencil_converter.Update()
+    
+    stencil_creator = vtk.vtkImageStencil()
+    if reverse:
+        stencil_creator.ReverseStencilOn()
+    else:
+        stencil_creator.ReverseStencilOff()
+    stencil_creator.SetBackgroundValue(i)
+    stencil_creator.SetInputData(image)
+    stencil_creator.SetStencilData(stencil_converter2.GetOutput())
+    stencil_creator.Update()
+    
+    return stencil_creator.GetOutput()
+
+
 def process():
     global input_type
     global input_dir
@@ -273,7 +294,6 @@ def process():
             # threshold for a significant poly = 100 connected points
             found_classes = np.sum(found_region_sizes > 100)
             
-            
             if found_classes >= present_classes:
                 segmented = True
                 break
@@ -302,8 +322,46 @@ def process():
             objects_found.append(conn_poly)
         
         print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
-        
         display_poly_data(objects_found, MouseInteractorHighLightActor())
+        
+        blank_poly = vtk.vtkPolyData()
+        
+        add_to_image(blank_poly, input_entry_data, 0, True)
+        
+        for i in present_classes:
+            command = input("pick', 'load', or skip?")
+            
+            if (command != "pick") and ("load" not in command):
+                print("...Skipping...")
+                continue
+            if command == "pick":
+                selected_poly = vtk.vtkPolyData()
+            elif "load" in command:
+                selected_class = input("Enter class to label this object: ")
+                class_inputs = os.listdir(classes[selected_class])
+                if input_entry + ".stl" in class_inputs:
+                    class_reader.SetFileName(classes[selected_class] + input_entry + ".stl")
+                    class_reader.Update()
+                    
+                    cleaner = vtk.vtkCleanPolyData()
+                    cleaner.SetInputData(class_reader.GetOutput())
+                    cleaner.Update()
+                    
+                    connectivity = vtk.vtkConnectivityFilter()
+                    connectivity.SetExtractionModeToLargestRegion()
+                    connectivity.SetInputData(cleaner.GetOutput())
+                    connectivity.Update()
+                    
+                    selected_poly = connectivity.GetOutput()
+                else:
+                    print("...not found, skipping...")
+                
+                # add to output image
+                add_to_image(selected_poly, input_entry_data, i+1)
+            
+            
+            
+        # add class to output image
         
         # pick class, 
         # if no class, ask for created class id
