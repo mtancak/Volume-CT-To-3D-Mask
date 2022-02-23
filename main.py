@@ -254,7 +254,7 @@ def add_to_image(poly, image, i, reverse=False):
         stencil_creator.ReverseStencilOff()
     stencil_creator.SetBackgroundValue(i)
     stencil_creator.SetInputData(image)
-    stencil_creator.SetStencilData(stencil_converter2.GetOutput())
+    stencil_creator.SetStencilData(stencil_converter.GetOutput())
     stencil_creator.Update()
     
     return stencil_creator.GetOutput()
@@ -328,8 +328,8 @@ def process():
         
         add_to_image(blank_poly, input_entry_data, 0, True)
         
-        for i in present_classes:
-            command = input("pick', 'load', or skip?")
+        for i in range(present_classes):
+            command = input("pick', 'load', or skip class (" + str(i) + ")?")
             
             if (command != "pick") and ("load" not in command):
                 print("...Skipping...")
@@ -337,7 +337,7 @@ def process():
             if command == "pick":
                 selected_poly = vtk.vtkPolyData()
             elif "load" in command:
-                selected_class = input("Enter class to label this object: ")
+                selected_class = int(input("Enter class to label this object: "))
                 class_inputs = os.listdir(classes[selected_class])
                 if input_entry + ".stl" in class_inputs:
                     class_reader.SetFileName(classes[selected_class] + input_entry + ".stl")
