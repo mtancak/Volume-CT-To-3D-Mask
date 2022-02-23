@@ -116,8 +116,8 @@ def display_mapper(mapper, style=None):
     if isinstance(mapper, list):
         for m in mapper:
             actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.SetColor(np.random.rand(3))
+            actor.SetMapper(m)
+            actor.GetProperty().SetColor(np.random.rand(3))
             
             renderer.AddActor(actor)
             
@@ -148,11 +148,11 @@ def display_poly_data(poly, style=None):
         mappers = []
         for p in poly:
             mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputData(poly)
-            mappers.append(mapper)
+            mapper.SetInputData(p)
             mapper.ScalarVisibilityOff()
+            mappers.append(mapper)
 
-            display_mapper(mappers)
+        display_mapper(mappers, style)
     else:
         # Following mesh rendering example from vtk
         mapper = vtk.vtkPolyDataMapper()
@@ -184,24 +184,19 @@ def display_image_data(image, threshold=1):
     display_mapper(mapper)
     
     
-def randomise_colours(poly):
-    return poly
-    
-    
-def count_sig_parts(poly):
+def get_sig_part_sizes(poly):
     connectivity = vtk.vtkPolyDataConnectivityFilter()
     connectivity.SetExtractionModeToAllRegions()
     connectivity.SetInputData(poly)
     connectivity.Update()
     
     region_count = connectivity.GetNumberOfExtractedRegions()
-    region_sizes = np.zeros(region_count)
+    region_sizes = np.zeros(region_count, dtype=int)
     
     for i in range(region_count):
-        region_sizes[i] = connectivity.GetRegionSizes().GetTuple1(i)
+        region_sizes[i] = int(connectivity.GetRegionSizes().GetTuple1(i))
     
-    # threshold for a significant poly = 100 connected points
-    return np.sum(region_sizes > 100)
+    return region_sizes
 
 
 # code from https://kitware.github.io/vtk-examples/site/Python/Picking/HighlightPickedActor/
@@ -273,7 +268,11 @@ def process():
         while not segmented and not (seg_threshold > seg_threshold_limit):
             print("...Segmentation threshold = " + str(seg_threshold))
             segmented_poly = cut_image_at_threshold(input_entry_data, seg_threshold)
-            found_classes = count_sig_parts(segmented_poly)
+            found_region_sizes = get_sig_part_sizes(segmented_poly)
+            
+            # threshold for a significant poly = 100 connected points
+            found_classes = np.sum(found_region_sizes > 100)
+            
             
             if found_classes >= present_classes:
                 segmented = True
@@ -285,9 +284,26 @@ def process():
             print("Segmentation of input (" + input_entry + ") failed, continuing to the next one.")
             continue
         
+        objects_found = []
+        
+        for i in sorted(zip(list(range(len(found_region_sizes))), found_region_sizes), reverse=True, key=lambda x : x[1])[:present_classes]:
+            connectivity = vtk.vtkPolyDataConnectivityFilter()
+            connectivity.SetExtractionModeToSpecifiedRegions()
+            connectivity.AddSpecifiedRegion(i[0])
+            connectivity.SetInputData(segmented_poly)
+            connectivity.Update()
+            
+            cleaner = vtk.vtkCleanPolyData()
+            cleaner.SetInputData(connectivity.GetOutput())
+            cleaner.Update()
+            
+            conn_poly = vtk.vtkPolyData()
+            conn_poly.DeepCopy(cleaner.GetOutput())
+            objects_found.append(conn_poly)
+        
         print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
         
-        display_poly_data(randomise_colours(segmented_poly), MouseInteractorHighLightActor())
+        display_poly_data(objects_found, MouseInteractorHighLightActor())
         
         # pick class, 
         # if no class, ask for created class id
