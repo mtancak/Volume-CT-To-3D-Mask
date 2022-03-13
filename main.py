@@ -338,7 +338,7 @@ def process():
         updated_data = add_to_image(blank_poly, input_entry_data, 0, False)
         
         for i in range(present_classes):
-            command = input("pick', 'load', or 'skip class (" + str(i) + ")?")
+            command = input("pick', 'load', or 'skip class (" + str(i) + ")? ")
             
             if (command != "pick") and ("load" not in command):
                 print("...Skipping...")
