@@ -25,6 +25,8 @@ seg_threshold_start = 250
 seg_threshold_limit = 500
 seg_threshold_step = 50
 
+convert_input_flag = False
+
 def commands_print():
     global commands
 
@@ -107,6 +109,13 @@ def set_seg_threshold_limit():
 
     seg_threshold_limit = input("Enter segmentation threshold limit: ")
     print("Set segmentation threshold limit to: '" + seg_threshold_limit + "'.")
+
+
+def set_convert_input():
+    global convert_input_flag
+    
+    convert_input_flag = bool(input("Convert input dicoms to .nii files while processing? (True/False): "))
+    print("Flag set to: '" + str(convert_input_flag) + "'.")
 
 
 def display_mapper(mapper, style=None):
@@ -322,20 +331,23 @@ def process():
             objects_found.append(conn_poly)
         
         print("Displaying segmentation at (" + str(seg_threshold) + "HU), found (" + str(found_classes) + ") objects): ")
-        display_poly_data(objects_found, MouseInteractorHighLightActor())
+        display_poly_data(objects_found)
         
         blank_poly = vtk.vtkPolyData()
         
-        add_to_image(blank_poly, input_entry_data, 0, True)
+        updated_data = add_to_image(blank_poly, input_entry_data, 0, False)
         
         for i in range(present_classes):
-            command = input("pick', 'load', or skip class (" + str(i) + ")?")
+            command = input("pick', 'load', or 'skip class (" + str(i) + ")?")
             
             if (command != "pick") and ("load" not in command):
                 print("...Skipping...")
                 continue
             if command == "pick":
+                selector = MouseInteractorHighLightActor()
+                display_poly_data(objects_found, selector)
                 selected_poly = vtk.vtkPolyData()
+                selected_poly = selector.LastPickedActor.GetMapper().GetInput()
             elif "load" in command:
                 selected_class = int(input("Enter class to label this object: "))
                 class_inputs = os.listdir(classes[selected_class])
@@ -356,111 +368,21 @@ def process():
                 else:
                     print("...not found, skipping...")
                 
-                # add to output image
-                add_to_image(selected_poly, input_entry_data, i+1)
+            # add to output image
+            updated_data = add_to_image(selected_poly, updated_data, i+1, True)
+        
+        writer = vtk.vtkNIFTIImageWriter()
+        writer.SetInputData(updated_data)
+        writer.SetFileName(output_dir + input_entry + "_output.nii")
+        writer.Write()
+        writer.Update()
+        
+        if convert_input_flag:
+            writer.SetInputData(input_entry_data)
+            writer.SetFileName(output_dir + input_entry + "_input.nii")
+            writer.Write()
+            writer.Update()
             
-            
-            
-        # add class to output image
-        
-        # pick class, 
-        # if no class, ask for created class id
-        
-        # put all classes into some dict / list
-        
-        # combine everything into 1 volume
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        output_entry_data = vtk.vtkImageData()
-        output_entry_data.DeepCopy(input_entry_data)
-
-        output_scalars = np.zeros(int(np.prod(input_entry_data.GetDimensions())))
-        for i in range(len(output_scalars)):
-            output_scalars[i] = 1
-        
-        output_scalars = numpy_support.numpy_to_vtk(output_scalars.ravel(), deep=True, array_type=6)
-        output_scalars.SetNumberOfComponents(1)
-        output_entry_data.GetPointData().SetScalars(output_scalars)
-    
-        output_entry_data.Modified()
-
-        for i, class_dir in enumerate(classes):
-            class_inputs = os.listdir(class_dir)
-            print("Detected (" + str(len(get_list_of_inputs)) + ") inputs for class (" + str(i) + "). ")
-
-            if input_entry + ".stl" in class_inputs:
-                class_reader.SetFileName(class_dir + input_entry + ".stl")
-                class_reader.Update()
-                
-                cleaner = vtk.vtkCleanPolyData()
-                cleaner.SetInputData(class_reader.GetOutput())
-                cleaner.Update()
-                
-                connectivity = vtk.vtkConnectivityFilter()
-                connectivity.SetExtractionModeToLargestRegion()
-                connectivity.SetInputData(cleaner.GetOutput())
-                connectivity.Update()
-                
-                display_poly_data(connectivity.GetOutput())
-                
-                stencil_converter = vtk.vtkPolyDataToImageStencil()
-                stencil_converter.SetOutputOrigin(output_entry_data.GetOrigin())
-                stencil_converter.SetOutputSpacing(output_entry_data.GetSpacing())
-                stencil_converter.SetOutputWholeExtent(output_entry_data.GetExtent())
-                stencil_converter.SetInputData(connectivity.GetOutput())
-                stencil_converter.Update()
-                
-                stencil_creator = vtk.vtkImageStencil()
-                stencil_creator.ReverseStencilOn()
-                stencil_creator.SetBackgroundValue(1)
-                stencil_creator.SetInputData(output_entry_data)
-                stencil_creator.SetStencilData(stencil_converter.GetOutput())
-                stencil_creator.Update()
-
-                stencil_creator1 = vtk.vtkImageStencil()
-                stencil_creator1.ReverseStencilOff()
-                stencil_creator1.SetBackgroundValue(2)
-                stencil_creator1.SetInputData(output_entry_data)
-                stencil_creator1.SetStencilData(stencil_converter.GetOutput())
-                stencil_creator1.Update()
-                
-                display_image_data(stencil_creator1.GetOutput())
-                
-                writer = vtk.vtkNIFTIImageWriter()
-                writer.SetInputData(stencil_creator1.GetOutput())
-                writer.SetFileName(output_dir + input_entry + ".nii")
-                writer.Write()
-                writer.Update()
-                
-                blank_poly = vtk.vtkPolyData()
-                
-                stencil_converter2 = vtk.vtkPolyDataToImageStencil()
-                stencil_converter2.SetOutputOrigin(output_entry_data.GetOrigin())
-                stencil_converter2.SetOutputSpacing(output_entry_data.GetSpacing())
-                stencil_converter2.SetOutputWholeExtent(output_entry_data.GetExtent())
-                stencil_converter2.SetInputData(blank_poly)
-                stencil_converter2.Update()
-                
-                stencil_creator2 = vtk.vtkImageStencil()
-                stencil_creator2.ReverseStencilOn()
-                stencil_creator2.SetBackgroundValue(0)
-                stencil_creator2.SetInputData(input_entry_data)
-                stencil_creator2.SetStencilData(stencil_converter2.GetOutput())
-                stencil_creator2.Update()
-                
-                writer = vtk.vtkNIFTIImageWriter()
-                writer.SetInputData(stencil_creator2.GetOutput())
-                writer.SetFileName(output_dir + input_entry + "_output3.nii")
-                writer.Write()
-                writer.Update()
     print("Done.")
                 
                     
@@ -475,6 +397,7 @@ commands = {
     "list classes": list_classes,
     "create class": create_class,
     "delete class": delete_class,
+    "set convert input": set_convert_input,
     "process": process
 }
 
