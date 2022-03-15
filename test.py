@@ -60,7 +60,7 @@ def display_mapper(mapper, style=None):
     rwi.Start()
     print("Displaying.")
 
-https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/4
+# https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/4
 def numpyToVTK(data, multi_component=False, type='float'):
     '''
     multi_components: rgb has 3 components
