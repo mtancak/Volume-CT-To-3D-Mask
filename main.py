@@ -25,7 +25,7 @@ seg_threshold_start = 250
 seg_threshold_limit = 500
 seg_threshold_step = 50
 
-convert_input_flag = False
+convert_input_flag = True
 
 def commands_print():
     global commands
@@ -300,8 +300,8 @@ def process():
             segmented_poly = cut_image_at_threshold(input_entry_data, seg_threshold)
             found_region_sizes = get_sig_part_sizes(segmented_poly)
             
-            # threshold for a significant poly = 100 connected points
-            found_classes = np.sum(found_region_sizes > 100)
+            # threshold for a significant poly = 1000 connected points
+            found_classes = np.sum(found_region_sizes > 1000)
             
             if found_classes >= present_classes:
                 segmented = True
@@ -394,10 +394,10 @@ commands = {
     "set input type": set_input_type,
     "set input dir": set_input_dir,
     "set output dir": set_output_dir,
+    "set convert input": set_convert_input,
     "list classes": list_classes,
     "create class": create_class,
     "delete class": delete_class,
-    "set convert input": set_convert_input,
     "process": process
 }
 
