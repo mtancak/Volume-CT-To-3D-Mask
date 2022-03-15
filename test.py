@@ -60,6 +60,7 @@ def display_mapper(mapper, style=None):
     rwi.Start()
     print("Displaying.")
 
+https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/4
 def numpyToVTK(data, multi_component=False, type='float'):
     '''
     multi_components: rgb has 3 components
@@ -89,6 +90,7 @@ def numpyToVTK(data, multi_component=False, type='float'):
     return img
 
 if __name__ == "__main__":
+    # https://developpaper.com/example-of-python-reading-dicom-image-simpleitk-and-dicom-package-implementation/
     img_path = 'C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Dicom/Shoulder/'
 
     reader = sitk.ImageSeriesReader()
