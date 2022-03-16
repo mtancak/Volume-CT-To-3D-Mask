@@ -1,5 +1,6 @@
 import vtk
 from vtk.util import numpy_support
+import SimpleITK as sitk
 
 import sys
 import os
@@ -269,6 +270,36 @@ def add_to_image(poly, image, i, reverse=False):
     return stencil_creator.GetOutput()
 
 
+# https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/4
+def numpyToVTK(data, multi_component=False, type='float'):
+    '''
+    multi_components: rgb has 3 components
+    type：float or char
+    '''
+    if type == 'float':
+        data_type = vtk.VTK_FLOAT
+    elif type == 'char':
+        data_type = vtk.VTK_UNSIGNED_CHAR
+    else:
+        raise RuntimeError('unknown type')
+    if multi_component == False:
+        if len(data.shape) == 2:
+            data = data[:, :, np.newaxis]
+        flat_data_array = data.transpose(2, 1, 0).flatten()
+        vtk_data = numpy_support.numpy_to_vtk(num_array=flat_data_array, deep=True, array_type=data_type)
+        shape = data.shape
+    else:
+        assert len(data.shape) == 3, 'only test for 2D RGB'
+        flat_data_array = data.transpose(1, 0, 2)
+        flat_data_array = np.reshape(flat_data_array, newshape=[-1, data.shape[2]])
+        vtk_data = numpy_support.numpy_to_vtk(num_array=flat_data_array, deep=True, array_type=data_type)
+        shape = [data.shape[0], data.shape[1], 1]
+    img = vtk.vtkImageData()
+    img.GetPointData().SetScalars(vtk_data)
+    img.SetDimensions(shape[0], shape[1], shape[2])
+    return img
+
+
 def process():
     global input_type
     global input_dir
@@ -278,16 +309,20 @@ def process():
     print("Detected (" + str(len(get_list_of_inputs)) + ") inputs. ")
 
     input_reader = None
-    if input_type == InputType.DICOM:
-        input_reader = vtk.vtkDICOMImageReader()
 
     class_reader = vtk.vtkSTLReader()
 
     for input_entry in get_list_of_inputs:
-        input_reader.SetDirectoryName(input_dir + input_entry)
-        input_reader.Update()
-        input_entry_data = input_reader.GetOutput()
-        input_entry_data.SetOrigin(input_reader.GetImagePositionPatient())
+        if input_type == InputType.DICOM:
+            # ITK's DICOM reader is more robust than the VTK implementation
+            # https://developpaper.com/example-of-python-reading-dicom-image-simpleitk-and-dicom-package-implementation/
+            reader = sitk.ImageSeriesReader()
+            img_names = reader.GetGDCMSeriesFileNames(input_dir + input_entry)
+            reader.SetFileNames(img_names)
+            image = reader.Execute()
+            image_array = sitk.GetArrayFromImage(image)  # z, y, x
+
+            input_entry_data = numpyToVTK(image_array)
         
         print("Displaying input (" + input_entry + ") at starting threshold:")
         display_image_data(input_entry_data, seg_threshold_start)
@@ -365,6 +400,7 @@ def process():
                     connectivity.Update()
                     
                     selected_poly = connectivity.GetOutput()
+                    display_poly_data(selected_poly, style=None)
                 else:
                     print("...not found, skipping...")
                 
