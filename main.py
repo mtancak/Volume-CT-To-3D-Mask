@@ -308,8 +308,6 @@ def process():
     get_list_of_inputs = os.listdir(input_dir)
     print("Detected (" + str(len(get_list_of_inputs)) + ") inputs. ")
 
-    input_reader = None
-
     class_reader = vtk.vtkSTLReader()
 
     for input_entry in get_list_of_inputs:
@@ -425,8 +423,9 @@ def process():
                 
 
 commands = {
-    "exit": sys.exit,
+    "process": process,
     "commands": commands_print,
+    "info": lambda: print("Type 'info [command]' for more info on how to use a command."),
     "set input type": set_input_type,
     "set input dir": set_input_dir,
     "set output dir": set_output_dir,
@@ -434,18 +433,42 @@ commands = {
     "list classes": list_classes,
     "create class": create_class,
     "delete class": delete_class,
-    "process": process
+    "exit": sys.exit,
+    "quit": sys.exit
+}
+
+info = {
+    "process": "Initiate segmentation process.",
+    "commands": "List available commands.",
+    "info": "http://www.github.com/mtancak/",
+    "set input type": "Choose between Numpy and DICOM volumes to be used as input.",
+    "set input dir": "Choose directory which will contain the input volumes.",
+    "set output dir": "Choose directory where the segmentation output will be saved.",
+    "set convert input": "Choose whether you want the input volume to be converted to " + 
+                            "and saved as a .nii (NIFTI) file in the output directory, " + 
+                            "along with the segmentation (this volume will be saved as [name]_input.nii).",
+    "list classes": "Prints class indices and their associated directories.",
+    "create class": "Allocate a directory to an index.",
+    "delete class": "Delete a created class by index.",
+    "exit": "Terminate program.",
+    "quit": "Terminate program."
 }
 
 if __name__ == "__main__":
+    print("pyDIssect - Utility for converting DICOMs into segmentation masks.")
     print("author: github.com/mtancak")
-    print("Utility for converting volumes into segmentation masks.")
     print("Type 'commands' for a list of commands.")
+    print("Type 'info [command]' for more info on how to use a command.")
+    print("Set the input and output directories, optionally create classes with pre-processed .STLs and then begin the segmentation [process]!")
 
     while True:
         command = input("Enter Command: ")
         if command in commands:
             commands[command]()
         else:
-            print("Command not recognised. (" + command + ") ")
-            commands_print()
+            cmd_split = command.split(" ")
+            if (cmd_split[0] == "info") and (cmd_split[1] in commands) and (len(cmd_split) == 2):
+                print("(" + cmd_split[1] + ") - " + info[cmd_split[1]])
+            else:
+                print("Command not recognised. (" + command + ")")
+                commands_print()
