@@ -455,7 +455,7 @@ info = {
 }
 
 if __name__ == "__main__":
-    print("pyDIssect - Utility for converting DICOMs into segmentation masks.")
+    print("pyDIssect - Utility for converting DICOMs and other volumes into segmentation masks.")
     print("author: github.com/mtancak")
     print("Type 'commands' for a list of commands.")
     print("Type 'info [command]' for more info on how to use a command.")
