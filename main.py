@@ -119,6 +119,7 @@ def set_convert_input():
     print("Flag set to: '" + str(convert_input_flag) + "'.")
 
 
+# Takes a vtkMapper, or a list of vtkMapper(s), and displays it/them in a vtkRenderWindow
 def display_mapper(mapper, style=None):
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(np.random.rand(3))
@@ -146,13 +147,15 @@ def display_mapper(mapper, style=None):
         style.SetDefaultRenderer(renderer)
         rwi.SetInteractorStyle(style)
 
+    print("Displaying.")
+    
     rwi.Initialize()
     render_window.Render()
     render_window.Start()
     rwi.Start()
-    print("Displaying.")
 
 
+# Takes a vtkPolyData, or a list of vtkPolyData, converts it/them into vtkMapper(s) and passes them to display_mapper()
 def display_poly_data(poly, style=None):
     if isinstance(poly, list):
         mappers = []
@@ -171,7 +174,10 @@ def display_poly_data(poly, style=None):
     
         display_mapper(mapper, style)
     
-    
+
+# Uses VTK's implementation of the Flying Edges algorithm to cut units larger than [threshold] value 
+# from a vtkImageData volume and outputs it as a vtkPolyData mesh
+# https://www.researchgate.net/publication/282975362_Flying_Edges_A_High-Performance_Scalable_Isocontouring_Algorithm
 def cut_image_at_threshold(image, threshold):
     extractor = vtk.vtkFlyingEdges3D()
     extractor.SetInputData(image)
@@ -185,6 +191,7 @@ def cut_image_at_threshold(image, threshold):
     return stripper.GetOutput()
 
 
+# Takes a vtkImageData volume, cuts out a vtkPolyData using a [threshold], then renders it using display_mapper()
 def display_image_data(image, threshold=1):
     # Following volume rendering example from vtk
     mapper = vtk.vtkPolyDataMapper()
@@ -194,6 +201,7 @@ def display_image_data(image, threshold=1):
     display_mapper(mapper)
     
     
+# count how many separate objects ("islands") are present in a vtkPolyData mesh, and return a np array with their sizes
 def get_sig_part_sizes(poly):
     connectivity = vtk.vtkPolyDataConnectivityFilter()
     connectivity.SetExtractionModeToAllRegions()
@@ -209,6 +217,7 @@ def get_sig_part_sizes(poly):
     return region_sizes
 
 
+# VTK interactor style to highlight and return a selected object from a vtkRenderWindowInteractor
 # code from https://kitware.github.io/vtk-examples/site/Python/Picking/HighlightPickedActor/
 class MouseInteractorHighLightActor(vtk.vtkInteractorStyleTrackballCamera):
 
@@ -249,6 +258,8 @@ class MouseInteractorHighLightActor(vtk.vtkInteractorStyleTrackballCamera):
         return
 
 
+# Colours in a vtkPolyData mesh shape in a vtkImageData volume with [i] values
+# [reverse] sets whether or not you want to colour in outside or inside the mesh
 def add_to_image(poly, image, i, reverse=False):
     stencil_converter = vtk.vtkPolyDataToImageStencil()
     stencil_converter.SetOutputOrigin(image.GetOrigin())
@@ -270,6 +281,7 @@ def add_to_image(poly, image, i, reverse=False):
     return stencil_creator.GetOutput()
 
 
+# Converts numpy array to vtkImageData
 # https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/4
 def numpyToVTK(data, multi_component=False, type='float'):
     '''
@@ -311,6 +323,7 @@ def process():
     class_reader = vtk.vtkSTLReader()
 
     for input_entry in get_list_of_inputs:
+        # read in the input
         if input_type == InputType.DICOM:
             # ITK's DICOM reader is more robust than the VTK implementation
             # https://developpaper.com/example-of-python-reading-dicom-image-simpleitk-and-dicom-package-implementation/
@@ -322,10 +335,12 @@ def process():
 
             input_entry_data = numpyToVTK(image_array)
         
+        # display the input to the user
         print("Displaying input (" + input_entry + ") at starting threshold:")
         display_image_data(input_entry_data, seg_threshold_start)
         present_classes = int(input("How many classes are present, excluding background? "))
         
+        # procedurally increase segmentation threshold until desired number of valid regions achieved
         segmented = False
         seg_threshold = seg_threshold_start
         while not segmented and not (seg_threshold > seg_threshold_limit):
@@ -348,6 +363,7 @@ def process():
         
         objects_found = []
         
+        # extract the N largest objects from the input, depending on how many classes the user expects
         for i in sorted(zip(list(range(len(found_region_sizes))), found_region_sizes), reverse=True, key=lambda x : x[1])[:present_classes]:
             connectivity = vtk.vtkPolyDataConnectivityFilter()
             connectivity.SetExtractionModeToSpecifiedRegions()
@@ -368,20 +384,22 @@ def process():
         
         blank_poly = vtk.vtkPolyData()
         
+        # 0 out the output vtkImageData segmentation
         updated_data = add_to_image(blank_poly, input_entry_data, 0, False)
         
+        # allows the user to select what to do for each expected class
         for i in range(present_classes):
             command = input("pick', 'load', or 'skip class (" + str(i) + ")? ")
             
             if (command != "pick") and ("load" not in command):
                 print("...Skipping...")
                 continue
-            if command == "pick":
+            if command == "pick":  # allows the user to click the object they want to select for current class
                 selector = MouseInteractorHighLightActor()
                 display_poly_data(objects_found, selector)
                 selected_poly = vtk.vtkPolyData()
                 selected_poly = selector.LastPickedActor.GetMapper().GetInput()
-            elif "load" in command:
+            elif "load" in command:  # allows the user to apply the input's class's .STL for current class
                 selected_class = int(input("Enter class to label this object: "))
                 class_inputs = os.listdir(classes[selected_class])
                 if input_entry + ".stl" in class_inputs:
@@ -399,12 +417,13 @@ def process():
                     
                     selected_poly = connectivity.GetOutput()
                     display_poly_data(selected_poly, style=None)
-                else:
+                else:  # skip current class
                     print("...not found, skipping...")
                 
             # add to output image
             updated_data = add_to_image(selected_poly, updated_data, i+1, True)
         
+        # save segmentation to [output_dir]/[name]_output.nii
         writer = vtk.vtkNIFTIImageWriter()
         writer.SetInputData(updated_data)
         writer.SetFileName(output_dir + input_entry + "_output.nii")
@@ -412,6 +431,7 @@ def process():
         writer.Update()
         
         if convert_input_flag:
+            # optionally save converted input volume to [output_dir]/[name]_input.nii for convenience
             writer.SetInputData(input_entry_data)
             writer.SetFileName(output_dir + input_entry + "_input.nii")
             writer.Write()
