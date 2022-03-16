@@ -26,6 +26,8 @@ seg_threshold_start = 250
 seg_threshold_limit = 500
 seg_threshold_step = 50
 
+sig_seg_threshold = 1000
+
 convert_input_flag = True
 
 def commands_print():
@@ -124,6 +126,7 @@ def display_mapper(mapper, style=None):
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(np.random.rand(3))
 
+    # if a list of mappers is displayed, colour each one with a random colour
     if isinstance(mapper, list):
         for m in mapper:
             actor = vtk.vtkActor()
@@ -348,8 +351,8 @@ def process():
             segmented_poly = cut_image_at_threshold(input_entry_data, seg_threshold)
             found_region_sizes = get_sig_part_sizes(segmented_poly)
             
-            # threshold for a significant poly = 1000 connected points
-            found_classes = np.sum(found_region_sizes > 1000)
+            # threshold for a significant poly = sig_seg_threshold connected points
+            found_classes = np.sum(found_region_sizes > sig_seg_threshold)
             
             if found_classes >= present_classes:
                 segmented = True
