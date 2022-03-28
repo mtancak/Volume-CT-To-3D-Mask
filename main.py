@@ -337,13 +337,13 @@ def create_dirs():
     global output_data_subdir
     global output_mask_subdir
     
-    if os.path.isdir(output_dir):
+    if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
         
-    if os.path.isdir(output_dir + output_data_subdir):
+    if not os.path.isdir(output_dir + output_data_subdir):
         os.mkdir(output_dir + output_data_subdir)
     
-    if os.path.isdir(output_dir + output_mask_subdir):
+    if not os.path.isdir(output_dir + output_mask_subdir):
         os.mkdir(output_dir + output_mask_subdir)
 
 
