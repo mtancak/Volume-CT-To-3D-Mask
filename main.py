@@ -17,6 +17,8 @@ class InputType(Enum):
 input_type = InputType.DICOM
 input_dir = "C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Dicom/"
 output_dir = "./Output/"
+output_data_subdir = "data/"
+output_mask_subdir = "mask/"
 classes = ["C:/Users/Milan/Downloads/54879843/DICOM/Doe^Pierre [54879843]/20060101 000000 [ - CRANE POLYGONE]/Data/Class 0/"]
 
 input_data = {}
@@ -65,6 +67,20 @@ def set_output_dir():
 
     output_dir = input("Enter output directory: ")
     print("Set output directory to: '" + output_dir + "'.")
+
+
+def set_output_data_subdir():
+    global output_data_subdir
+
+    output_data_subdir = input("Enter output subdirectory for the data: ")
+    print("Set subdirectory to: '" + output_data_subdir + "'.")
+
+
+def set_output_mask_subdir():
+    global output_mask_subdir
+
+    output_mask_subdir = input("Enter output subdirectory for the masks: ")
+    print("Set subdirectory to: '" + output_mask_subdir + "'.")
 
 
 def create_class():
