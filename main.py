@@ -331,10 +331,39 @@ def numpyToVTK(data, multi_component=False, type='float'):
     return img
 
 
+# check if the output directories exist and if they don't, create them
+def create_dirs():
+    global output_dir
+    global output_data_subdir
+    global output_mask_subdir
+    
+    if os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+        
+    if os.path.isdir(output_dir + output_data_subdir):
+        os.mkdir(output_dir + output_data_subdir)
+    
+    if os.path.isdir(output_dir + output_mask_subdir):
+        os.mkdir(output_dir + output_mask_subdir)
+
+
+# checks if output directories exist
+def check_dirs_exist():
+    global output_dir
+    global output_data_subdir
+    global output_mask_subdir
+    
+    return (os.path.isdir(output_dir) and 
+            os.path.isdir(output_dir + output_data_subdir) and 
+            os.path.isdir(output_dir + output_mask_subdir))
+
+
 def process():
     global input_type
     global input_dir
     global classes
+    
+    create_dirs()
 
     get_list_of_inputs = os.listdir(input_dir)
     print("Detected (" + str(len(get_list_of_inputs)) + ") inputs. ")
@@ -342,6 +371,11 @@ def process():
     class_reader = vtk.vtkSTLReader()
 
     for input_entry in get_list_of_inputs:
+        # check that output directories still exist
+        if not check_dirs_exist():
+            print("Cancelling process sequence, output directories don't exist! (Check privileges / output directories being deleted)")
+            break
+        
         # read in the input
         if input_type == InputType.DICOM:
             # ITK's DICOM reader is more robust than the VTK implementation
@@ -445,14 +479,16 @@ def process():
         # save segmentation to [output_dir]/[name]_output.nii
         writer = vtk.vtkNIFTIImageWriter()
         writer.SetInputData(updated_data)
-        writer.SetFileName(output_dir + input_entry + "_output.nii")
+        print("SAVING MASK: " + output_dir + output_mask_subdir + input_entry + ".nii")
+        writer.SetFileName(output_dir + output_mask_subdir + input_entry + ".nii")
         writer.Write()
         writer.Update()
         
         if convert_input_flag:
             # optionally save converted input volume to [output_dir]/[name]_input.nii for convenience
             writer.SetInputData(input_entry_data)
-            writer.SetFileName(output_dir + input_entry + "_input.nii")
+            print("SAVING DATA: " + output_dir + output_data_subdir + input_entry + ".nii")
+            writer.SetFileName(output_dir + output_data_subdir + input_entry + ".nii")
             writer.Write()
             writer.Update()
             
